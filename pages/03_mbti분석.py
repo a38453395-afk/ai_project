@@ -1,27 +1,25 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import numpy as np
 
-# ---------------------------
+# --------------------------------------------------
 # 페이지 설정
-# ---------------------------
+# --------------------------------------------------
 st.set_page_config(
-    page_title="🌎 국가별 MBTI 분석",
-    page_icon="🌈",
+    page_title="MBTI 국가 TOP10",
+    page_icon="🌎",
     layout="wide"
 )
 
-# ---------------------------
+# --------------------------------------------------
 # 데이터 불러오기
-# ---------------------------
+# --------------------------------------------------
 @st.cache_data
 def load_data():
     return pd.read_csv("countriesMBTI_16types.csv")
 
 df = load_data()
 
-# 국가 컬럼 찾기
 country_col = df.columns[0]
 
 mbti_cols = [
@@ -31,121 +29,104 @@ mbti_cols = [
     "ISTP","ISFP","ESTP","ESFP"
 ]
 
-# ---------------------------
+# --------------------------------------------------
 # 제목
-# ---------------------------
-st.title("🌎 국가별 MBTI 비율 분석")
+# --------------------------------------------------
+st.title("🌎 MBTI 유형별 국가 TOP10")
 st.markdown(
-    "국가를 선택하면 해당 국가의 MBTI 비율을 인터랙티브하게 확인할 수 있습니다."
+    """
+원하는 MBTI를 선택하면  
+해당 MBTI 비율이 가장 높은 국가 TOP10을 확인할 수 있습니다.
+"""
 )
 
-# ---------------------------
-# 국가 선택
-# ---------------------------
-country = st.selectbox(
-    "🌍 국가 선택",
-    sorted(df[country_col].unique())
+# --------------------------------------------------
+# MBTI 선택
+# --------------------------------------------------
+selected_mbti = st.selectbox(
+    "🧠 MBTI 선택",
+    mbti_cols
 )
 
-selected = df[df[country_col] == country].iloc[0]
-
-mbti_data = (
-    pd.DataFrame({
-        "MBTI": mbti_cols,
-        "비율": [selected[x] for x in mbti_cols]
-    })
-    .sort_values("비율", ascending=False)
+# --------------------------------------------------
+# TOP10 국가 추출
+# --------------------------------------------------
+top10 = (
+    df[[country_col, selected_mbti]]
+    .sort_values(selected_mbti, ascending=False)
+    .head(10)
 )
 
-# ---------------------------
+top10.columns = ["국가", "비율"]
+
+# --------------------------------------------------
 # TOP3 카드
-# ---------------------------
-top3 = mbti_data.head(3)
+# --------------------------------------------------
+st.subheader(f"🏆 {selected_mbti} TOP3 국가")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.metric(
         "🥇 1위",
-        top3.iloc[0]["MBTI"],
-        f"{top3.iloc[0]['비율']:.1%}"
+        top10.iloc[0]["국가"],
+        f"{top10.iloc[0]['비율']:.2%}"
     )
 
 with col2:
     st.metric(
         "🥈 2위",
-        top3.iloc[1]["MBTI"],
-        f"{top3.iloc[1]['비율']:.1%}"
+        top10.iloc[1]["국가"],
+        f"{top10.iloc[1]['비율']:.2%}"
     )
 
 with col3:
     st.metric(
         "🥉 3위",
-        top3.iloc[2]["MBTI"],
-        f"{top3.iloc[2]['비율']:.1%}"
+        top10.iloc[2]["국가"],
+        f"{top10.iloc[2]['비율']:.2%}"
     )
 
 st.divider()
 
-# ---------------------------
+# --------------------------------------------------
 # 색상 설정
-# ---------------------------
+# --------------------------------------------------
 
-rainbow = [
-    "#ff0000",
-    "#ff7f00",
-    "#ffff00",
-    "#00ff00",
-    "#0000ff",
-    "#4b0082",
-    "#8b00ff"
-]
+rainbow_color = "#8A2BE2"
 
 pink_gradient = [
-    "#ffe4ec",
-    "#ffd1df",
-    "#ffbfd2",
-    "#ffadc5",
-    "#ff9ab8",
-    "#ff88ab",
-    "#ff76a0",
-    "#ff6495",
-    "#ff528a",
-    "#ff4081",
-    "#ff2f76",
-    "#ff1d6b",
-    "#ff0b60",
-    "#ff0055",
-    "#ff4d88"
+    "#ffd6e7",
+    "#ffc2db",
+    "#ffaecf",
+    "#ff9ac3",
+    "#ff86b7",
+    "#ff72ab",
+    "#ff5e9f",
+    "#ff4a93",
+    "#ff3687"
 ]
 
-colors = []
+colors = [rainbow_color] + pink_gradient
 
-for i in range(len(mbti_data)):
-    if i == 0:
-        colors.append(rainbow[i % len(rainbow)])
-    else:
-        colors.append(
-            pink_gradient[
-                min(i-1, len(pink_gradient)-1)
-            ]
-        )
-
-# ---------------------------
-# Plotly 그래프
-# ---------------------------
+# --------------------------------------------------
+# 그래프
+# --------------------------------------------------
 fig = go.Figure()
 
 fig.add_trace(
     go.Bar(
-        x=mbti_data["MBTI"],
-        y=mbti_data["비율"] * 100,
+        x=top10["국가"],
+        y=top10["비율"] * 100,
         marker_color=colors,
+
         text=[
-            f"{x:.1f}%"
-            for x in mbti_data["비율"] * 100
+            f"{v:.2f}%"
+            for v in top10["비율"] * 100
         ],
+
         textposition="outside",
+
         hovertemplate=
         "<b>%{x}</b><br>" +
         "비율: %{y:.2f}%<extra></extra>"
@@ -153,14 +134,18 @@ fig.add_trace(
 )
 
 fig.update_layout(
-    title=f"📊 {country} MBTI 비율",
-    height=650,
+    title=f"🌈 {selected_mbti} 비율이 높은 국가 TOP10",
     template="plotly_white",
-    xaxis_title="MBTI",
+    height=650,
+
+    xaxis_title="국가",
     yaxis_title="비율 (%)",
-    hovermode="x",
-    font=dict(size=14),
-    showlegend=False
+
+    showlegend=False,
+
+    font=dict(
+        size=14
+    )
 )
 
 st.plotly_chart(
@@ -168,27 +153,32 @@ st.plotly_chart(
     use_container_width=True
 )
 
-# ---------------------------
+# --------------------------------------------------
 # 데이터 테이블
-# ---------------------------
-with st.expander("📋 MBTI 데이터 보기"):
-    display_df = mbti_data.copy()
+# --------------------------------------------------
+with st.expander("📋 TOP10 데이터 보기"):
+
+    display_df = top10.copy()
+
     display_df["비율"] = (
         display_df["비율"] * 100
     ).round(2)
+
+    display_df.columns = [
+        "국가",
+        "비율 (%)"
+    ]
 
     st.dataframe(
         display_df,
         use_container_width=True
     )
 
-# ---------------------------
-# 설명
-# ---------------------------
-st.info(
-    f"""
-    🌈 {country}에서 가장 높은 MBTI는
-    **{top3.iloc[0]['MBTI']}**
-    ({top3.iloc[0]['비율']:.1%}) 입니다.
-    """
+# --------------------------------------------------
+# 하단 설명
+# --------------------------------------------------
+st.success(
+    f"✨ {selected_mbti} 비율이 가장 높은 국가는 "
+    f"{top10.iloc[0]['국가']} "
+    f"({top10.iloc[0]['비율']:.2%}) 입니다."
 )
