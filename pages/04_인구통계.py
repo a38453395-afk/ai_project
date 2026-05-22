@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import numpy as np
+import plotly.graph_objects as go
 
-# -----------------------------
+# --------------------------------
 # 페이지 설정
-# -----------------------------
+# --------------------------------
 st.set_page_config(
     page_title="서울시 인구통계",
     page_icon="📊",
@@ -15,123 +13,142 @@ st.set_page_config(
 
 st.title("📊 서울시의 인구통계")
 
-# -----------------------------
-# 한글 폰트 설정
-# -----------------------------
-plt.rcParams["font.family"] = "Malgun Gothic"
-plt.rcParams["axes.unicode_minus"] = False
-
-# -----------------------------
+# --------------------------------
 # 데이터 불러오기
-# -----------------------------
+# --------------------------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("POPULATION.csv", encoding="cp949")
-    return df
+    encodings = ["utf-8", "cp949", "euc-kr"]
+
+    for enc in encodings:
+        try:
+            return pd.read_csv("POPULATION.csv", encoding=enc)
+        except:
+            pass
+
+    return pd.read_csv("POPULATION.csv")
 
 df = load_data()
 
-# -----------------------------
-# 행정구 컬럼 찾기
-# -----------------------------
+# --------------------------------
+# 행정구 컬럼
+# --------------------------------
 district_col = df.columns[0]
 
-# -----------------------------
-# 연령대 컬럼 추출
-# (2026.04 기준만 사용)
-# -----------------------------
-age_columns = [col for col in df.columns if "2026.04" in col]
-
-# 총인구 제외
-age_columns = [
-    col for col in age_columns
-    if "계" not in col
-]
-
-# -----------------------------
+# --------------------------------
 # 행정구 선택
-# -----------------------------
-districts = df[district_col].unique()
-
-selected_district = st.selectbox(
+# --------------------------------
+district = st.selectbox(
     "🏙️ 행정구를 선택하세요",
-    districts
+    df[district_col].unique()
 )
 
-# -----------------------------
-# 선택 데이터
-# -----------------------------
-selected_row = df[df[district_col] == selected_district].iloc[0]
+row = df[df[district_col] == district].iloc[0]
 
+# --------------------------------
+# 2026.04 연령대 컬럼 추출
+# --------------------------------
+age_cols = []
+
+for col in df.columns:
+    if "2026.04" in str(col):
+        if "계" not in str(col):
+            age_cols.append(col)
+
+# --------------------------------
+# 연령대 / 인구수
+# --------------------------------
 ages = []
 values = []
 
-for col in age_columns:
-    age_name = col.split(".")[-1]
-    ages.append(age_name)
+for col in age_cols:
 
-    value = str(selected_row[col]).replace(",", "")
-    values.append(int(float(value)))
+    age = col.split(".")[-1]
+    ages.append(age)
 
-# -----------------------------
-# 무지개 배경 생성
-# -----------------------------
-fig, ax = plt.subplots(figsize=(12, 6))
+    value = str(row[col]).replace(",", "")
 
-gradient = np.linspace(0, 1, 256)
-gradient = np.vstack((gradient, gradient))
+    try:
+        value = int(float(value))
+    except:
+        value = 0
 
-ax.imshow(
-    gradient,
-    aspect="auto",
-    cmap="rainbow",
-    extent=[-0.5, len(ages)-0.5, 0, max(values)*1.1],
-    alpha=0.35
+    values.append(value)
+
+# --------------------------------
+# 무지개 색상
+# --------------------------------
+rainbow_colors = [
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "blue",
+    "indigo",
+    "violet",
+    "deeppink",
+    "cyan",
+    "lime",
+    "gold"
+]
+
+# --------------------------------
+# 꺾은선 그래프
+# --------------------------------
+fig = go.Figure()
+
+fig.add_trace(
+    go.Scatter(
+        x=ages,
+        y=values,
+        mode="lines+markers",
+        line=dict(
+            width=5,
+            color="red"
+        ),
+        marker=dict(
+            size=12,
+            color=rainbow_colors[:len(ages)]
+        ),
+        name=district
+    )
 )
 
-# -----------------------------
-# 무지개 색 선 그래프
-# -----------------------------
-colors = plt.cm.rainbow(
-    np.linspace(0, 1, len(ages))
+# 무지개 배경
+fig.update_layout(
+    title={
+        "text": "서울시의 인구통계",
+        "x": 0.5
+    },
+    xaxis_title="연령대",
+    yaxis_title="인구수",
+    height=650,
+    plot_bgcolor="rgba(240,240,240,1)",
+    paper_bgcolor="white",
+    font=dict(
+        family="Malgun Gothic"
+    )
 )
 
-for i in range(len(ages)-1):
-    ax.plot(
-        ages[i:i+2],
-        values[i:i+2],
-        color=colors[i],
-        linewidth=4
+# 배경 무지개 띠
+for i, color in enumerate(rainbow_colors):
+    fig.add_vrect(
+        x0=i-0.5,
+        x1=i+0.5,
+        fillcolor=color,
+        opacity=0.08,
+        layer="below",
+        line_width=0
     )
 
-ax.scatter(
-    ages,
-    values,
-    c=colors,
-    s=100
+st.plotly_chart(
+    fig,
+    use_container_width=True
 )
 
-# -----------------------------
-# 그래프 꾸미기
-# -----------------------------
-ax.set_title(
-    "서울시의 인구통계",
-    fontsize=20,
-    fontweight="bold"
-)
-
-ax.set_xlabel("연령대", fontsize=12)
-ax.set_ylabel("인구수", fontsize=12)
-
-ax.grid(True, linestyle="--", alpha=0.4)
-
-plt.xticks(rotation=20)
-
-st.pyplot(fig)
-
-# -----------------------------
-# 데이터 표
-# -----------------------------
+# --------------------------------
+# 표
+# --------------------------------
 st.subheader("📋 연령대별 인구수")
 
 result_df = pd.DataFrame({
