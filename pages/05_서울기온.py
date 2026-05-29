@@ -18,6 +18,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "seoul.csv"
 
 # -----------------------------
+# 파일 존재 확인
+# -----------------------------
+if not DATA_FILE.exists():
+    st.error(f"❌ CSV 파일 없음: {DATA_FILE}")
+    st.stop()
+
+# -----------------------------
 # 데이터 불러오기
 # -----------------------------
 @st.cache_data
@@ -42,11 +49,10 @@ def load_data():
 
     return df
 
-# 데이터 로드
 df = load_data()
 
 # -----------------------------
-# 월/일 선택
+# 월 / 일 선택
 # -----------------------------
 col1, col2 = st.columns(2)
 
@@ -57,11 +63,13 @@ with col1:
     )
 
 with col2:
+    available_days = sorted(
+        df[df["월"] == month]["일"].unique()
+    )
+
     day = st.selectbox(
         "📌 일 선택",
-        sorted(
-            df[df["월"] == month]["일"].unique()
-        )
+        available_days
     )
 
 # -----------------------------
@@ -86,7 +94,7 @@ fig.add_trace(
         name="최고기온 🌈",
         line=dict(
             width=5,
-            color="#ff0080"
+            color="#ff1493"
         ),
         marker=dict(size=7)
     )
