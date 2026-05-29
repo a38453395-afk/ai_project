@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
+import numpy as np
 
 # -----------------------------------
 # 페이지 설정
@@ -15,29 +16,17 @@ st.set_page_config(
 st.title("🌈 날짜별 기온분석")
 
 # -----------------------------------
-# CSV 경로 설정
+# CSV 경로
 # -----------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "seoul.csv"
 
 # -----------------------------------
-# CSV 파일 존재 확인
+# 파일 존재 확인
 # -----------------------------------
 if not DATA_FILE.exists():
 
-    st.error(
-        f"""
-❌ seoul.csv 파일을 찾을 수 없습니다.
-
-현재 찾는 위치:
-{DATA_FILE}
-
-📌 해결 방법:
-1. 파일 이름을 seoul.csv 로 변경
-2. Home.py 와 같은 위치에 넣기
-"""
-    )
-
+    st.error(f"❌ CSV 파일 없음\n\n{DATA_FILE}")
     st.stop()
 
 # -----------------------------------
@@ -46,14 +35,13 @@ if not DATA_FILE.exists():
 @st.cache_data
 def load_data():
 
-    # CSV 읽기
     try:
         df = pd.read_csv(DATA_FILE, encoding="cp949")
 
     except:
         df = pd.read_csv(DATA_FILE, encoding="utf-8")
 
-    # 컬럼명 공백 제거
+    # 컬럼 공백 제거
     df.columns = df.columns.str.strip()
 
     # 날짜 변환
@@ -92,7 +80,7 @@ def load_data():
 df = load_data()
 
 # -----------------------------------
-# 월 / 일 선택
+# 날짜 선택
 # -----------------------------------
 col1, col2 = st.columns(2)
 
@@ -115,6 +103,16 @@ with col2:
     )
 
 # -----------------------------------
+# 미래 연도 선택
+# -----------------------------------
+future_year = st.number_input(
+    "🔮 미래 연도 예측",
+    min_value=2026,
+    max_value=2100,
+    value=2035
+)
+
+# -----------------------------------
 # 데이터 필터링
 # -----------------------------------
 filtered = df[
@@ -122,18 +120,45 @@ filtered = df[
     (df["일"] == day)
 ].sort_values("연도")
 
-# 데이터 없을 때
-if filtered.empty:
+# -----------------------------------
+# 예측 계산
+# -----------------------------------
+x = filtered["연도"]
+y_max = filtered["최고기온(℃)"]
+y_min = filtered["최저기온(℃)"]
 
-    st.warning("⚠️ 해당 날짜 데이터가 없습니다.")
-    st.stop()
+# 선형 회귀
+max_coef = np.polyfit(x, y_max, 1)
+min_coef = np.polyfit(x, y_min, 1)
+
+pred_max = np.poly1d(max_coef)(future_year)
+pred_min = np.poly1d(min_coef)(future_year)
+
+# -----------------------------------
+# 예측 결과 출력
+# -----------------------------------
+st.subheader(f"🔮 {future_year}년 예측 결과")
+
+col3, col4 = st.columns(2)
+
+with col3:
+    st.metric(
+        "🌈 예상 최고기온",
+        f"{pred_max:.1f} ℃"
+    )
+
+with col4:
+    st.metric(
+        "✨ 예상 최저기온",
+        f"{pred_min:.1f} ℃"
+    )
 
 # -----------------------------------
 # 그래프 생성
 # -----------------------------------
 fig = go.Figure()
 
-# 최고기온 Glow 효과
+# 최고기온 Glow
 fig.add_trace(
     go.Scatter(
         x=filtered["연도"],
@@ -148,7 +173,7 @@ fig.add_trace(
     )
 )
 
-# 최고기온 메인 라인
+# 최고기온 메인
 fig.add_trace(
     go.Scatter(
         x=filtered["연도"],
@@ -159,13 +184,16 @@ fig.add_trace(
             width=5,
             color="#ff1493"
         ),
-        marker=dict(
-            size=8
-        )
+        marker=dict(size=8),
+
+        # 마우스 올렸을 때 표시
+        hovertemplate=
+        "<b>연도:</b> %{x}<br>" +
+        "<b>최고기온:</b> %{y:.1f}℃<extra></extra>"
     )
 )
 
-# 최저기온 Glow 효과
+# 최저기온 Glow
 fig.add_trace(
     go.Scatter(
         x=filtered["연도"],
@@ -180,7 +208,7 @@ fig.add_trace(
     )
 )
 
-# 최저기온 메인 라인
+# 최저기온 메인
 fig.add_trace(
     go.Scatter(
         x=filtered["연도"],
@@ -191,31 +219,74 @@ fig.add_trace(
             width=5,
             color="#FFD700"
         ),
-        marker=dict(
-            size=8
-        )
+        marker=dict(size=8),
+
+        # 마우스 올렸을 때 표시
+        hovertemplate=
+        "<b>연도:</b> %{x}<br>" +
+        "<b>최저기온:</b> %{y:.1f}℃<extra></extra>"
     )
 )
 
 # -----------------------------------
-# 레이아웃 설정
+# 미래 예측 점 추가
+# -----------------------------------
+fig.add_trace(
+    go.Scatter(
+        x=[future_year],
+        y=[pred_max],
+        mode="markers+text",
+        name="예상 최고기온 🔮",
+        marker=dict(
+            size=16,
+            color="cyan"
+        ),
+        text=[f"{pred_max:.1f}℃"],
+        textposition="top center",
+
+        hovertemplate=
+        "<b>예측 연도:</b> %{x}<br>" +
+        "<b>예상 최고기온:</b> %{y:.1f}℃<extra></extra>"
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=[future_year],
+        y=[pred_min],
+        mode="markers+text",
+        name="예상 최저기온 🔮",
+        marker=dict(
+            size=16,
+            color="lime"
+        ),
+        text=[f"{pred_min:.1f}℃"],
+        textposition="bottom center",
+
+        hovertemplate=
+        "<b>예측 연도:</b> %{x}<br>" +
+        "<b>예상 최저기온:</b> %{y:.1f}℃<extra></extra>"
+    )
+)
+
+# -----------------------------------
+# 레이아웃
 # -----------------------------------
 fig.update_layout(
 
     title={
         "text": "🌡️ 날짜별 기온분석",
-        "x": 0.5,
-        "xanchor": "center"
+        "x": 0.5
     },
 
     xaxis_title="연도",
     yaxis_title="온도 (℃)",
 
-    hovermode="x unified",
-
     template="plotly_dark",
 
-    height=700,
+    hovermode="closest",
+
+    height=750,
 
     legend=dict(
         orientation="h",
@@ -232,7 +303,7 @@ st.plotly_chart(
 )
 
 # -----------------------------------
-# 데이터 테이블
+# 데이터 보기
 # -----------------------------------
 with st.expander("📊 데이터 보기"):
 
