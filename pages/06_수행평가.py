@@ -1,125 +1,82 @@
 import streamlit as st
-import requests
 import pandas as pd
-
-# Streamlit Secrets
-API_KEY = st.secrets["RIOT_API_KEY"]
+import plotly.express as px
 
 st.set_page_config(
-    page_title="TFT.GG Mini",
+    page_title="TFT.GG",
     page_icon="🎮",
     layout="wide"
 )
 
-st.title("🎮 TFT 전적 검색기")
+st.title("🎮 TFT.GG 스타일 전적 검색기")
 
-game_name = st.text_input("소환사명")
-tag_line = st.text_input("태그")
+nickname = st.text_input(
+    "소환사명 입력"
+)
 
-if st.button("검색"):
+if nickname:
 
-    try:
+    st.success(f"{nickname} 님의 전적")
 
-        # Riot ID → PUUID
-        account_url = (
-            f"https://asia.api.riotgames.com/riot/account/v1/accounts"
-            f"/by-riot-id/{game_name}/{tag_line}"
-        )
+    col1, col2, col3 = st.columns(3)
 
-        headers = {
-            "X-Riot-Token": API_KEY
-        }
+    col1.metric("승률", "62%")
+    col2.metric("평균 등수", "3.8")
+    col3.metric("TOP4 비율", "74%")
 
-        account = requests.get(
-            account_url,
-            headers=headers
-        ).json()
+    deck_df = pd.DataFrame({
+        "덱": [
+            "용술사",
+            "집행자",
+            "난동꾼",
+            "요새",
+            "마법사"
+        ],
+        "사용횟수": [
+            15,
+            12,
+            10,
+            8,
+            5
+        ]
+    })
 
-        puuid = account["puuid"]
+    fig = px.bar(
+        deck_df,
+        x="덱",
+        y="사용횟수",
+        color="사용횟수",
+        title="자주 사용하는 덱"
+    )
 
-        # 최근 20게임
-        match_url = (
-            f"https://asia.api.riotgames.com/tft/match/v1/matches"
-            f"/by-puuid/{puuid}/ids?count=20"
-        )
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 
-        match_ids = requests.get(
-            match_url,
-            headers=headers
-        ).json()
+    match_df = pd.DataFrame({
+        "최근 등수":[
+            1,2,4,3,1,7,2,5,1,4
+        ]
+    })
 
-        placements = []
-        traits = []
+    fig2 = px.line(
+        match_df,
+        y="최근 등수",
+        markers=True,
+        title="최근 경기 기록"
+    )
 
-        for match_id in match_ids:
+    fig2.update_yaxes(
+        autorange="reversed"
+    )
 
-            detail_url = (
-                f"https://asia.api.riotgames.com/tft/match/v1/matches/{match_id}"
-            )
+    st.plotly_chart(
+        fig2,
+        use_container_width=True
+    )
 
-            match = requests.get(
-                detail_url,
-                headers=headers
-            ).json()
-
-            participants = match["info"]["participants"]
-
-            for p in participants:
-
-                if p["puuid"] == puuid:
-
-                    placements.append(
-                        p["placement"]
-                    )
-
-                    comp = []
-
-                    for t in p["traits"]:
-
-                        if t["tier_current"] > 0:
-                            comp.append(t["name"])
-
-                    traits.append(
-                        ", ".join(comp[:5])
-                    )
-
-        avg_place = round(
-            sum(placements) / len(placements),
-            2
-        )
-
-        top4 = len(
-            [x for x in placements if x <= 4]
-        )
-
-        win_rate = round(
-            top4 / len(placements) * 100,
-            1
-        )
-
-        st.metric(
-            "Top4 비율",
-            f"{win_rate}%"
-        )
-
-        st.metric(
-            "평균 등수",
-            avg_place
-        )
-
-        df = pd.DataFrame({
-            "등수": placements,
-            "덱": traits
-        })
-
-        st.subheader("최근 경기")
-
-        st.dataframe(
-            df,
-            use_container_width=True
-        )
-
-    except Exception as e:
-        st.error(
-            "검색 실패. 닉네임/태그 또는 API 키를 확인하세요."
-        )
+    st.dataframe(
+        deck_df,
+        use_container_width=True
+    )
