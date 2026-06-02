@@ -1,144 +1,125 @@
 import streamlit as st
+import requests
 import pandas as pd
-import plotly.express as px
+
+# Streamlit Secrets
+API_KEY = st.secrets["RIOT_API_KEY"]
 
 st.set_page_config(
-    page_title="🐾 입양하세요 펫 티어리스트",
-    page_icon="🐾",
+    page_title="TFT.GG Mini",
+    page_icon="🎮",
     layout="wide"
 )
 
-st.title("🐾 입양하세요 종합 펫 티어리스트")
+st.title("🎮 TFT 전적 검색기")
 
-# ------------------------
-# 데이터
-# ------------------------
+game_name = st.text_input("소환사명")
+tag_line = st.text_input("태그")
 
-pets = [
-    ("Shadow Dragon","S"),
-    ("Bat Dragon","S"),
-    ("Frost Dragon","S"),
-    ("Giraffe","S"),
-    ("Owl","S"),
+if st.button("검색"):
 
-    ("Parrot","A"),
-    ("Evil Unicorn","A"),
-    ("Crow","A"),
-    ("Arctic Reindeer","A"),
-    ("Monkey King","A"),
+    try:
 
-    ("Turtle","B"),
-    ("Kangaroo","B"),
-    ("Albino Monkey","B"),
-    ("Diamond Unicorn","B"),
-    ("Golden Dragon","B"),
-
-    ("Dragon","C"),
-    ("Unicorn","C"),
-    ("Griffin","C"),
-    ("Cerberus","C"),
-    ("Robo Dog","C")
-]
-
-df = pd.DataFrame(
-    pets,
-    columns=["펫","티어"]
-)
-
-tier_score = {
-    "S":4,
-    "A":3,
-    "B":2,
-    "C":1
-}
-
-df["점수"] = df["티어"].map(tier_score)
-
-# ------------------------
-# 펫 선택
-# ------------------------
-
-selected_pet = st.selectbox(
-    "🐶 펫 선택",
-    df["펫"]
-)
-
-pet_info = df[df["펫"] == selected_pet].iloc[0]
-
-tier = pet_info["티어"]
-
-if tier == "S":
-    st.success(f"🏆 {selected_pet} : S 티어")
-elif tier == "A":
-    st.info(f"⭐ {selected_pet} : A 티어")
-elif tier == "B":
-    st.warning(f"✨ {selected_pet} : B 티어")
-else:
-    st.error(f"📉 {selected_pet} : C 티어")
-
-# ------------------------
-# 검색
-# ------------------------
-
-search = st.text_input("🔍 펫 검색")
-
-if search:
-    filtered = df[
-        df["펫"].str.contains(
-            search,
-            case=False
+        # Riot ID → PUUID
+        account_url = (
+            f"https://asia.api.riotgames.com/riot/account/v1/accounts"
+            f"/by-riot-id/{game_name}/{tag_line}"
         )
-    ]
-else:
-    filtered = df
 
-# ------------------------
-# 그래프
-# ------------------------
+        headers = {
+            "X-Riot-Token": API_KEY
+        }
 
-fig = px.bar(
-    filtered,
-    x="펫",
-    y="점수",
-    color="티어",
-    title="입양하세요 종합 펫 티어리스트",
-    category_orders={
-        "티어":["S","A","B","C"]
-    }
-)
+        account = requests.get(
+            account_url,
+            headers=headers
+        ).json()
 
-fig.update_layout(
-    height=600
-)
+        puuid = account["puuid"]
 
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
+        # 최근 20게임
+        match_url = (
+            f"https://asia.api.riotgames.com/tft/match/v1/matches"
+            f"/by-puuid/{puuid}/ids?count=20"
+        )
 
-# ------------------------
-# 티어표
-# ------------------------
+        match_ids = requests.get(
+            match_url,
+            headers=headers
+        ).json()
 
-st.subheader("📋 전체 티어표")
+        placements = []
+        traits = []
 
-st.dataframe(
-    filtered,
-    use_container_width=True
-)
+        for match_id in match_ids:
 
-# ------------------------
-# 티어별 보기
-# ------------------------
+            detail_url = (
+                f"https://asia.api.riotgames.com/tft/match/v1/matches/{match_id}"
+            )
 
-selected_tier = st.selectbox(
-    "티어별 보기",
-    ["S","A","B","C"]
-)
+            match = requests.get(
+                detail_url,
+                headers=headers
+            ).json()
 
-tier_df = df[df["티어"] == selected_tier]
+            participants = match["info"]["participants"]
 
-st.dataframe(
-    tier_df,
-    use_container_width=True
-)
+            for p in participants:
+
+                if p["puuid"] == puuid:
+
+                    placements.append(
+                        p["placement"]
+                    )
+
+                    comp = []
+
+                    for t in p["traits"]:
+
+                        if t["tier_current"] > 0:
+                            comp.append(t["name"])
+
+                    traits.append(
+                        ", ".join(comp[:5])
+                    )
+
+        avg_place = round(
+            sum(placements) / len(placements),
+            2
+        )
+
+        top4 = len(
+            [x for x in placements if x <= 4]
+        )
+
+        win_rate = round(
+            top4 / len(placements) * 100,
+            1
+        )
+
+        st.metric(
+            "Top4 비율",
+            f"{win_rate}%"
+        )
+
+        st.metric(
+            "평균 등수",
+            avg_place
+        )
+
+        df = pd.DataFrame({
+            "등수": placements,
+            "덱": traits
+        })
+
+        st.subheader("최근 경기")
+
+        st.dataframe(
+            df,
+            use_container_width=True
+        )
+
+    except Exception as e:
+        st.error(
+            "검색 실패. 닉네임/태그 또는 API 키를 확인하세요."
+        )
