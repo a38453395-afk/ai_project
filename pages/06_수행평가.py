@@ -1,3 +1,12 @@
 import streamlit as st
+import requests
 
-st.write(st.secrets)
+key = st.secrets["RIOT_API_KEY"]
+
+r = requests.get(
+    "https://kr.api.riotgames.com/lol/status/v4/platform-data",
+    headers={"X-Riot-Token": key}
+)
+
+st.write("상태코드:", r.status_code)
+st.json(r.json())
