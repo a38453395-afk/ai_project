@@ -1,4 +1,7 @@
 import streamlit as st
+
+st.write(st.secrets)
+import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
