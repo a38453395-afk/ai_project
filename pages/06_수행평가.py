@@ -1,4 +1,10 @@
 import streamlit as st
+
+key = st.secrets["RIOT_API_KEY"]
+
+st.write("길이:", len(key))
+st.write("시작:", key[:6])
+import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
