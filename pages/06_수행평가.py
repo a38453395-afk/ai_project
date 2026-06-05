@@ -1,9 +1,4 @@
 import streamlit as st
-
-key = st.secrets["RIOT_API_KEY"]
-
-st.write(key)
-import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
