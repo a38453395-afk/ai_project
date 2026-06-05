@@ -1,5 +1,27 @@
 import streamlit as st
 import requests
+
+key = st.secrets["RIOT_API_KEY"]
+
+headers = {
+    "X-Riot-Token": key
+}
+
+st.write("헤더 확인")
+st.write(headers)
+
+r = requests.get(
+    "https://kr.api.riotgames.com/lol/status/v4/platform-data",
+    headers=headers
+)
+
+st.write("상태코드")
+st.write(r.status_code)
+
+st.write("응답")
+st.json(r.json())
+import streamlit as st
+import requests
 import pandas as pd
 import plotly.express as px
 
