@@ -2,8 +2,7 @@ import streamlit as st
 
 key = st.secrets["RIOT_API_KEY"]
 
-st.write("길이:", len(key))
-st.write("시작:", key[:6])
+st.write(key)
 import streamlit as st
 import requests
 import pandas as pd
