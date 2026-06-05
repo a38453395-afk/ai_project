@@ -72,3 +72,103 @@ with col2:
 """)
 
 st.markdown("---")
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+st.set_page_config(
+    page_title="TFT META ANALYZER",
+    page_icon="🎮",
+    layout="wide"
+)
+
+st.title("🏆 TFT META ANALYZER")
+st.caption("TFT.GG 스타일 메타 분석 대시보드")
+
+# 예시 메타 데이터
+meta_data = [
+    ["황금 황소", "S", 58.2, 83.1, 3.4],
+    ["펭구 포병", "S", 57.1, 81.5, 3.6],
+    ["사신 리롤", "A", 54.8, 76.2, 4.1],
+    ["마법사", "A", 53.9, 74.8, 4.2],
+    ["난동꾼", "B", 51.5, 69.3, 4.8],
+]
+
+df = pd.DataFrame(
+    meta_data,
+    columns=[
+        "덱",
+        "티어",
+        "승률",
+        "TOP4 비율",
+        "평균 순위"
+    ]
+)
+
+st.subheader("📊 현재 메타 티어리스트")
+st.dataframe(df, use_container_width=True)
+
+st.subheader("🏆 승률 TOP 덱")
+
+fig = px.bar(
+    df,
+    x="덱",
+    y="승률",
+    color="티어",
+    text="승률"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+deck = st.selectbox(
+    "🎮 덱 선택",
+    df["덱"]
+)
+
+selected = df[df["덱"] == deck].iloc[0]
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.metric(
+        "승률",
+        f"{selected['승률']}%"
+    )
+
+with c2:
+    st.metric(
+        "TOP4",
+        f"{selected['TOP4 비율']}%"
+    )
+
+with c3:
+    st.metric(
+        "평균 순위",
+        selected["평균 순위"]
+    )
+
+st.markdown("---")
+
+st.subheader("📖 덱 설명")
+
+descriptions = {
+    "황금 황소": "초반 안정성과 후반 고점이 뛰어난 메타 덱",
+    "펭구 포병": "강력한 원거리 딜링 중심 덱",
+    "사신 리롤": "저코스트 리롤 운영형 덱",
+    "마법사": "광역 마법 피해 중심 덱",
+    "난동꾼": "높은 체력과 유지력을 활용하는 덱"
+}
+
+st.info(descriptions[deck])
+
+st.subheader("🎯 추천 운영")
+
+st.markdown("""
+1. 핵심 유닛 확보
+2. 아이템 우선 제작
+3. 8레벨 타이밍 확보
+4. 핵심 2성 완성
+""")
